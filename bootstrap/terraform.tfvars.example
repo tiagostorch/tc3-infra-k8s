@@ -1,0 +1,12 @@
+# Precisa ser único no mundo — inclua um sufixo próprio.
+state_bucket_name = "tc3-tfstate-oficina-SEUSUFIXO"
+
+budget_alert_emails = ["voce@exemplo.com"]
+budget_limit_usd    = "100"
+
+github_repositories = [
+  "SUA_ORG/tc3-infra-k8s",
+  "SUA_ORG/tc3-infra-db",
+  "SUA_ORG/tc3-auth-lambda",
+  "SUA_ORG/tech-challenge-fiap",
+]
