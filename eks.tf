@@ -4,6 +4,10 @@ data "aws_iam_role" "ci" {
   name = var.ci_role_name
 }
 
+data "aws_iam_user" "admin" {
+  user_name = var.admin_user_name
+}
+
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.31"
@@ -14,16 +18,29 @@ module "eks" {
   # Endpoint público para o CI e a máquina do time alcançarem o cluster sem VPN.
   cluster_endpoint_public_access = true
 
-  # Dá acesso admin a quem rodou o apply, evitando ficar trancado do lado de fora.
-  enable_cluster_creator_admin_permissions = true
+  # Desligado de propósito. Esta opção concede acesso a QUEM RODA o terraform,
+  # então aplicar do CI substitui a entrada de quem aplicou da própria máquina —
+  # e a pessoa perde acesso ao cluster sem nada no plano indicar isso.
+  # Com as entradas declaradas abaixo, o acesso não depende de quem executa.
+  enable_cluster_creator_admin_permissions = false
 
-  # Permissão de IAM não é permissão de Kubernetes: o cluster tem seu próprio
-  # controle de acesso. Sem esta entrada, a role do CI autentica na AWS, pede o
-  # token e é recusada pela API do cluster — os helm_release falham com
-  # "Kubernetes cluster unreachable".
+  # Permissão de IAM não é permissão de Kubernetes: o cluster tem controle de
+  # acesso próprio. Sem entrada aqui, o principal autentica na AWS, pede o token
+  # e é recusado pela API do cluster ("Kubernetes cluster unreachable").
   access_entries = {
     ci = {
       principal_arn = data.aws_iam_role.ci.arn
+
+      policy_associations = {
+        admin = {
+          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = { type = "cluster" }
+        }
+      }
+    }
+
+    admin = {
+      principal_arn = data.aws_iam_user.admin.arn
 
       policy_associations = {
         admin = {

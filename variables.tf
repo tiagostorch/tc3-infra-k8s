@@ -59,3 +59,9 @@ variable "ci_role_name" {
   type        = string
   default     = "tc3-github-actions"
 }
+
+variable "admin_user_name" {
+  description = "Usuário IAM que administra o cluster a partir da máquina local."
+  type        = string
+  default     = "tc3-admin"
+}
