@@ -18,6 +18,14 @@ module "eks" {
   # Endpoint público para o CI e a máquina do time alcançarem o cluster sem VPN.
   cluster_endpoint_public_access = true
 
+  # Mesmo motivo das access entries: por padrão o módulo torna administrador da
+  # chave KMS quem está executando, e o apply passa a alternar a política entre o
+  # CI e a máquina local a cada rodada, num diff que nunca converge.
+  kms_key_administrators = [
+    data.aws_iam_role.ci.arn,
+    data.aws_iam_user.admin.arn,
+  ]
+
   # Desligado de propósito. Esta opção concede acesso a QUEM RODA o terraform,
   # então aplicar do CI substitui a entrada de quem aplicou da própria máquina —
   # e a pessoa perde acesso ao cluster sem nada no plano indicar isso.
