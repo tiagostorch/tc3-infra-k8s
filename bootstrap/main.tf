@@ -54,7 +54,29 @@ variable "budget_limit_usd" {
 variable "github_repositories" {
   description = <<-EOT
     Repositórios autorizados a assumir a role de CI, no formato "org/repo".
-    Ex.: ["LucasValada/tc3-infra-k8s", "LucasValada/tc3-infra-db"]
+    Ex.: ["tiagostorch/tc3-infra-k8s", "tiagostorch/tc3-infra-db"]
+  EOT
+  type        = list(string)
+  default     = []
+}
+
+variable "github_owner_id" {
+  description = <<-EOT
+    ID numérico do dono dos repositórios: `gh api users/SEU_USUARIO --jq .id`.
+
+    O GitHub emite o subject do token OIDC com identificadores imutáveis —
+    "repo:owner@ID/repo@ID:pull_request" — para que renomear um repositório não
+    transfira a confiança para quem tomar o nome antigo. Sem os IDs, a role
+    recusa a troca com "Not authorized to perform sts:AssumeRoleWithWebIdentity".
+  EOT
+  type        = string
+  default     = ""
+}
+
+variable "github_repository_ids" {
+  description = <<-EOT
+    ID numérico de cada repositório, na MESMA ordem de github_repositories:
+    `gh api repos/OWNER/REPO --jq .id`.
   EOT
   type        = list(string)
   default     = []
@@ -143,6 +165,26 @@ resource "aws_iam_openid_connect_provider" "github" {
   thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
 }
 
+locals {
+  # Forma legada: repo:owner/repo:*
+  subjects_legado = [for repo in var.github_repositories : "repo:${repo}:*"]
+
+  # Forma imutável: repo:owner@ownerId/repo@repoId:*
+  subjects_imutavel = [
+    for i, repo in var.github_repositories :
+    format(
+      "repo:%s@%s/%s@%s:*",
+      split("/", repo)[0],
+      var.github_owner_id,
+      split("/", repo)[1],
+      var.github_repository_ids[i],
+    )
+    if var.github_owner_id != "" && length(var.github_repository_ids) > i
+  ]
+
+  subjects_confiaveis = concat(local.subjects_legado, local.subjects_imutavel)
+}
+
 data "aws_iam_policy_document" "github_assume_role" {
   count = length(var.github_repositories) > 0 ? 1 : 0
 
@@ -161,10 +203,13 @@ data "aws_iam_policy_document" "github_assume_role" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # Aceita as duas formas do subject: a legada, sem IDs, e a imutável que o
+    # GitHub emite hoje. Padrões explícitos em vez de curinga largo — um
+    # "repo:tiagostorch*" também casaria com uma conta chamada tiagostorch-x.
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = [for repo in var.github_repositories : "repo:${repo}:*"]
+      values   = local.subjects_confiaveis
     }
   }
 }

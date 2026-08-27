@@ -10,3 +10,16 @@ github_repositories = [
   "SUA_ORG/tc3-auth-lambda",
   "SUA_ORG/tech-challenge-fiap",
 ]
+
+# O GitHub emite o subject do token OIDC com IDs imutáveis, então a role precisa
+# deles para aceitar a troca. Como obter:
+#   gh api users/SEU_USUARIO --jq .id
+#   gh api repos/OWNER/REPO  --jq .id
+github_owner_id = "000000000"
+
+# Mesma ordem de github_repositories
+github_repository_ids = [
+  "0000000000",
+  "0000000000",
+  "0000000000",
+]
