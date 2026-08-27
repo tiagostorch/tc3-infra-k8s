@@ -65,3 +65,17 @@ variable "admin_user_name" {
   type        = string
   default     = "tc3-admin"
 }
+
+variable "cluster_admin_users" {
+  description = <<-EOT
+    Usuários IAM do time que precisam operar o cluster com kubectl. Admin na
+    conta AWS não basta — o EKS tem autorização própria.
+  EOT
+  type        = list(string)
+  default = [
+    "mauricio.mathias",
+    "miguel.moraes",
+    "lucas.valadao",
+    "rodrigo.souza",
+  ]
+}
