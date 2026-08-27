@@ -8,6 +8,8 @@ data "aws_iam_user" "admin" {
   user_name = var.admin_user_name
 }
 
+data "aws_caller_identity" "atual" {}
+
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.31"
@@ -35,29 +37,46 @@ module "eks" {
   # Permissão de IAM não é permissão de Kubernetes: o cluster tem controle de
   # acesso próprio. Sem entrada aqui, o principal autentica na AWS, pede o token
   # e é recusado pela API do cluster ("Kubernetes cluster unreachable").
-  access_entries = {
-    ci = {
-      principal_arn = data.aws_iam_role.ci.arn
+  # Ter admin na conta AWS não dá acesso ao cluster: o EKS mantém autorização
+  # própria. Quem não constar aqui recebe Unauthorized no kubectl, mesmo sendo
+  # administrador da conta.
+  access_entries = merge(
+    {
+      for nome in var.cluster_admin_users : nome => {
+        principal_arn = "arn:aws:iam::${data.aws_caller_identity.atual.account_id}:user/${nome}"
 
-      policy_associations = {
-        admin = {
-          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = { type = "cluster" }
+        policy_associations = {
+          admin = {
+            policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+            access_scope = { type = "cluster" }
+          }
         }
       }
-    }
+    },
+    {
+      ci = {
+        principal_arn = data.aws_iam_role.ci.arn
 
-    admin = {
-      principal_arn = data.aws_iam_user.admin.arn
-
-      policy_associations = {
-        admin = {
-          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-          access_scope = { type = "cluster" }
+        policy_associations = {
+          admin = {
+            policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+            access_scope = { type = "cluster" }
+          }
         }
       }
-    }
-  }
+
+      admin = {
+        principal_arn = data.aws_iam_user.admin.arn
+
+        policy_associations = {
+          admin = {
+            policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+            access_scope = { type = "cluster" }
+          }
+        }
+      }
+    },
+  )
 
   cluster_addons = {
     coredns                = {}
