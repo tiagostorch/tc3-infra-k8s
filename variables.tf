@@ -53,3 +53,9 @@ variable "node_max_size" {
   type    = number
   default = 4
 }
+
+variable "ci_role_name" {
+  description = "Role que o GitHub Actions assume por OIDC, criada no bootstrap."
+  type        = string
+  default     = "tc3-github-actions"
+}

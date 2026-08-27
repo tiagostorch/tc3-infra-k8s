@@ -1,3 +1,9 @@
+# Criada no bootstrap. Buscada por nome para o CI não depender de tfvars, que
+# não é versionado.
+data "aws_iam_role" "ci" {
+  name = var.ci_role_name
+}
+
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.31"
@@ -10,6 +16,23 @@ module "eks" {
 
   # Dá acesso admin a quem rodou o apply, evitando ficar trancado do lado de fora.
   enable_cluster_creator_admin_permissions = true
+
+  # Permissão de IAM não é permissão de Kubernetes: o cluster tem seu próprio
+  # controle de acesso. Sem esta entrada, a role do CI autentica na AWS, pede o
+  # token e é recusada pela API do cluster — os helm_release falham com
+  # "Kubernetes cluster unreachable".
+  access_entries = {
+    ci = {
+      principal_arn = data.aws_iam_role.ci.arn
+
+      policy_associations = {
+        admin = {
+          policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = { type = "cluster" }
+        }
+      }
+    }
+  }
 
   cluster_addons = {
     coredns                = {}
