@@ -9,7 +9,7 @@ Provisiona, via Terraform, a rede e o cluster onde a aplicação NestJS roda. É
 | Recurso | Detalhe |
 |---|---|
 | VPC | 2 AZs, subnets públicas e privadas, NAT único |
-| Cluster EKS | Kubernetes 1.31, endpoint público, addons de base |
+| Cluster EKS | Kubernetes 1.35, endpoint público, addons de base |
 | Managed node group | 2× `t3.small` (2–4 nós) |
 | metrics-server | Requisito do HPA da aplicação |
 | AWS Load Balancer Controller | Traduz Ingress em ALB; alvo do VPC Link do API Gateway |

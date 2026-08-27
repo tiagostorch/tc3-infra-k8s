@@ -20,8 +20,14 @@ variable "vpc_cidr" {
 }
 
 variable "kubernetes_version" {
-  type    = string
-  default = "1.31"
+  description = <<-EOT
+    Manter numa versão em standard support. Versões em extended support custam
+    US$ 0,60 por hora de cluster em vez de US$ 0,10 — seis vezes mais, cobrado
+    em silêncio. A 1.31 saiu do standard support em 26/11/2025. A 1.35 fica em standard
+    support ate marco de 2027, com folga sobre o prazo do projeto.
+  EOT
+  type        = string
+  default     = "1.35"
 }
 
 variable "node_instance_type" {
