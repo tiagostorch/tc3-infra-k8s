@@ -53,33 +53,28 @@ variable "budget_limit_usd" {
 
 variable "github_repositories" {
   description = <<-EOT
-    Repositórios autorizados a assumir a role de CI, no formato "org/repo".
-    Ex.: ["tiagostorch/tc3-infra-k8s", "tiagostorch/tc3-infra-db"]
-  EOT
-  type        = list(string)
-  default     = []
-}
+    Repositórios autorizados a assumir a role de CI. Cada entrada leva o
+    "org/repo" e os IDs numéricos do dono e do repositório:
 
-variable "github_owner_id" {
-  description = <<-EOT
-    ID numérico do dono dos repositórios: `gh api users/SEU_USUARIO --jq .id`.
+      gh api users/OWNER      --jq .id
+      gh api repos/OWNER/REPO --jq .id
 
     O GitHub emite o subject do token OIDC com identificadores imutáveis —
     "repo:owner@ID/repo@ID:pull_request" — para que renomear um repositório não
     transfira a confiança para quem tomar o nome antigo. Sem os IDs, a role
     recusa a troca com "Not authorized to perform sts:AssumeRoleWithWebIdentity".
-  EOT
-  type        = string
-  default     = ""
-}
 
-variable "github_repository_ids" {
-  description = <<-EOT
-    ID numérico de cada repositório, na MESMA ordem de github_repositories:
-    `gh api repos/OWNER/REPO --jq .id`.
+    O dono vem por repositório, e não num campo único da conta: o repo da
+    aplicação é de outro integrante do time.
   EOT
-  type        = list(string)
-  default     = []
+
+  type = list(object({
+    repo     = string
+    owner_id = optional(string, "")
+    repo_id  = optional(string, "")
+  }))
+
+  default = []
 }
 
 # ─── 1. State remoto ────────────────────────────────────────────────────────
@@ -167,19 +162,19 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 locals {
   # Forma legada: repo:owner/repo:*
-  subjects_legado = [for repo in var.github_repositories : "repo:${repo}:*"]
+  subjects_legado = [for r in var.github_repositories : "repo:${r.repo}:*"]
 
   # Forma imutável: repo:owner@ownerId/repo@repoId:*
   subjects_imutavel = [
-    for i, repo in var.github_repositories :
+    for r in var.github_repositories :
     format(
       "repo:%s@%s/%s@%s:*",
-      split("/", repo)[0],
-      var.github_owner_id,
-      split("/", repo)[1],
-      var.github_repository_ids[i],
+      split("/", r.repo)[0],
+      r.owner_id,
+      split("/", r.repo)[1],
+      r.repo_id,
     )
-    if var.github_owner_id != "" && length(var.github_repository_ids) > i
+    if r.owner_id != "" && r.repo_id != ""
   ]
 
   subjects_confiaveis = concat(local.subjects_legado, local.subjects_imutavel)

@@ -4,22 +4,16 @@ state_bucket_name = "tc3-tfstate-oficina-SEUSUFIXO"
 budget_alert_emails = ["voce@exemplo.com"]
 budget_limit_usd    = "100"
 
-github_repositories = [
-  "SUA_ORG/tc3-infra-k8s",
-  "SUA_ORG/tc3-infra-db",
-  "SUA_ORG/tc3-auth-lambda",
-  "SUA_ORG/tech-challenge-fiap",
-]
-
 # O GitHub emite o subject do token OIDC com IDs imutáveis, então a role precisa
 # deles para aceitar a troca. Como obter:
-#   gh api users/SEU_USUARIO --jq .id
-#   gh api repos/OWNER/REPO  --jq .id
-github_owner_id = "000000000"
-
-# Mesma ordem de github_repositories
-github_repository_ids = [
-  "0000000000",
-  "0000000000",
-  "0000000000",
+#   gh api users/OWNER      --jq .id
+#   gh api repos/OWNER/REPO --jq .id
+#
+# Os repos não são todos do mesmo dono — o da aplicação fica na conta de outro
+# integrante —, por isso o owner_id acompanha cada entrada.
+github_repositories = [
+  { repo = "SUA_ORG/tc3-infra-k8s", owner_id = "000000000", repo_id = "0000000000" },
+  { repo = "SUA_ORG/tc3-infra-db", owner_id = "000000000", repo_id = "0000000000" },
+  { repo = "SUA_ORG/tc3-auth-lambda", owner_id = "000000000", repo_id = "0000000000" },
+  { repo = "OUTRA_ORG/tech-challenge-fiap", owner_id = "000000000", repo_id = "0000000000" },
 ]
