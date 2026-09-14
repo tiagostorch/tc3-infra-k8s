@@ -109,19 +109,41 @@ O `terraform apply` reconstrói o ambiente inteiro em ~20 minutos — que é, el
 
 ## Arquitetura
 
+```mermaid
+graph TB
+    Internet["Internet"]
+    GH["GitHub Actions<br/>(CI/CD dos 4 repos)"]
+    NR["New Relic"]
+
+    subgraph AWS["AWS · us-east-1"]
+        ECR["<b>ECR</b><br/>imagem da API"]
+        OIDC["<b>IAM + OIDC</b><br/>role assumida pelo CI<br/>(sem chave estática)"]
+
+        subgraph VPC["VPC 10.0.0.0/16 · 2 AZs"]
+            subgraph Pub["subnets públicas"]
+                ALB["<b>ALB</b><br/>(via AWS Load Balancer Controller)<br/>alvo do VPC Link do API Gateway"]
+                NAT["NAT Gateway<br/>(egress único)"]
+            end
+            subgraph Priv["subnets privadas"]
+                subgraph EKS["<b>EKS</b> 1.35 · node group 3× t3.small"]
+                    Pods["pods da API<br/>HPA 2–10 · metrics-server"]
+                    NRB["nri-bundle<br/>(métricas/logs/eventos do cluster)"]
+                end
+                RDS[("<b>RDS PostgreSQL</b><br/>criado em tc3-infra-db")]
+            end
+        end
+    end
+
+    Internet -->|"HTTPS"| ALB
+    ALB --> Pods
+    Pods -->|"SQL/TLS 5432"| RDS
+    Pods -->|"egress"| NAT
+    Pods -->|"pull imagem"| ECR
+    GH -->|"assume role (OIDC)"| OIDC
+    NRB -->|"métricas · logs · eventos"| NR
 ```
-                       ┌──────────────────────────────────────┐
-   Internet ──────────▶│ VPC 10.0.0.0/16 · 2 AZs              │
-                       │                                      │
-                       │  subnets públicas ── ALB ── NAT      │
-                       │         │                            │
-                       │         ▼                            │
-                       │  subnets privadas                    │
-                       │   ├── nós EKS (t3.small × 3)         │
-                       │   │    └── pods da API + HPA 2–10    │
-                       │   └── (RDS, criado em tc3-infra-db)  │
-                       └──────────────────────────────────────┘
-```
+
+Este repositório provisiona a **base** (VPC, EKS, ECR, ALB Controller, OIDC) e a **observabilidade do cluster** (`nri-bundle`, dashboard e alertas). O **RDS** é criado em [`tc3-infra-db`](https://github.com/tiagostorch/tc3-infra-db) e as **Lambdas + API Gateway** em [`tc3-auth-lambda`](https://github.com/tiagostorch/tc3-auth-lambda), ambos lendo os outputs daqui pelo state remoto.
 
 ## Observabilidade
 
