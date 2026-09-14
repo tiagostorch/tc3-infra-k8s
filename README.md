@@ -10,7 +10,7 @@ Provisiona, via Terraform, a rede e o cluster onde a aplicação NestJS roda. É
 |---|---|
 | VPC | 2 AZs, subnets públicas e privadas, NAT único |
 | Cluster EKS | Kubernetes 1.35, endpoint público, addons de base |
-| Managed node group | 2× `t3.small` (2–4 nós) |
+| Managed node group | 3× `t3.small` (3–4 nós) |
 | metrics-server | Requisito do HPA da aplicação |
 | AWS Load Balancer Controller | Traduz Ingress em ALB; alvo do VPC Link do API Gateway |
 | `nri-bundle` (New Relic) | Métricas, eventos e logs do cluster, sem CloudWatch no caminho |
@@ -117,7 +117,7 @@ O `terraform apply` reconstrói o ambiente inteiro em ~20 minutos — que é, el
                        │         │                            │
                        │         ▼                            │
                        │  subnets privadas                    │
-                       │   ├── nós EKS (t3.small × 2)         │
+                       │   ├── nós EKS (t3.small × 3)         │
                        │   │    └── pods da API + HPA 2–10    │
                        │   └── (RDS, criado em tc3-infra-db)  │
                        └──────────────────────────────────────┘
