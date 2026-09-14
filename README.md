@@ -13,6 +13,9 @@ Provisiona, via Terraform, a rede e o cluster onde a aplicação NestJS roda. É
 | Managed node group | 2× `t3.small` (2–4 nós) |
 | metrics-server | Requisito do HPA da aplicação |
 | AWS Load Balancer Controller | Traduz Ingress em ALB; alvo do VPC Link do API Gateway |
+| `nri-bundle` (New Relic) | Métricas, eventos e logs do cluster, sem CloudWatch no caminho |
+| Dashboard e alertas | Quatro páginas de painéis e quatorze condições (quinze com o monitor de Synthetics), como código |
+| Monitor de Synthetics | Healthcheck externo, quando a URL pública é informada |
 
 ## Tecnologias
 
@@ -62,6 +65,35 @@ Secrets necessários no repositório:
 |---|---|
 | `AWS_ROLE_ARN` | output `github_actions_role_arn` do bootstrap |
 | `TF_STATE_BUCKET` | output `state_bucket` do bootstrap |
+| `NEW_RELIC_ACCOUNT_ID` | conta New Relic → *Administration* |
+| `NEW_RELIC_API_KEY` | conta New Relic → *API keys*, tipo **User** (`NRAK-…`) |
+| `NEW_RELIC_LICENSE_KEY` | conta New Relic → *API keys*, tipo **Ingest - License** |
+
+O workflow mapeia cada um para a variável correspondente do Terraform no bloco
+`env:` — cadastrar o secret não basta, e nomeá-lo `TF_VAR_NEWRELIC_API_KEY` não
+funciona: o Terraform casa `TF_VAR_<nome>` com o nome exato declarado em
+`variables.tf`, em minúsculas.
+
+Aplicando da própria máquina, os mesmos valores ficam no `.env` da raiz —
+ignorado pelo git (`.env` e `.env.*` no `.gitignore`), já com o mapeamento
+`TF_VAR_*`:
+
+```bash
+set -a; source .env; set +a
+terraform plan
+```
+
+O plan valida o formato das credenciais antes de tocar em qualquer recurso:
+account ID numérico e license key de 40 caracteres. Placeholder falha ali, com a
+explicação, em vez de os agentes subirem e receberem 403 em silêncio.
+
+Duas *variables* do repositório (aba ao lado dos secrets) completam a
+configuração, ambas opcionais:
+
+| Variable | Efeito se ficar vazia |
+|---|---|
+| `ALERT_EMAILS` | política sobe sem canal de notificação — formato JSON: `["fulano@exemplo.com"]` |
+| `SYNTHETICS_UPTIME_URL` | monitor externo não é criado; os alertas internos de uptime continuam valendo |
 
 `main` é protegida: merge apenas via Pull Request com CI verde.
 
@@ -89,6 +121,27 @@ O `terraform apply` reconstrói o ambiente inteiro em ~20 minutos — que é, el
                        │   │    └── pods da API + HPA 2–10    │
                        │   └── (RDS, criado em tc3-infra-db)  │
                        └──────────────────────────────────────┘
+```
+
+## Observabilidade
+
+Métricas, logs, traces e alertas no New Relic, com todos os agentes falando
+direto com a API — sem CloudWatch Logs, Metric Stream ou Firehose em nenhum
+ponto do caminho.
+
+O desenho completo, o contrato dos campos de log e o que se ganhou e se perdeu
+ao sair do CloudWatch estão em [OBSERVABILIDADE.md](OBSERVABILIDADE.md).
+
+Deste repositório saem a chave de ingestão no SSM, o agente de Kubernetes
+(`nri-bundle`: CPU, memória e estado de nós, pods e contêineres, eventos do
+cluster e logs), o dashboard, as políticas de alerta — incluindo a de consumo
+do free tier — e as tags `environment: production` / `project:
+tech-challenge-fiap` aplicadas a toda a telemetria. O agente do banco mora em
+`tc3-infra-db` e a instrumentação da autenticação em `tc3-auth-lambda`, cada um
+perto do recurso que monitora.
+
+```bash
+terraform output newrelic_dashboard_url
 ```
 
 ## Outputs consumidos por outros repositórios
