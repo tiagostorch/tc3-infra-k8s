@@ -71,10 +71,15 @@ jobs:
 
       - name: Plan
         id: plan
-        run: terraform plan -no-color -out=tfplan 2>&1 | tee plan.txt
+        # Sem pipefail o status do step é o do `tee`, e um plan com erro passava
+        # verde.
+        run: |
+          set -o pipefail
+          terraform plan -no-color -out=tfplan 2>&1 | tee plan.txt
 
+      # Comenta também quando o plan falha — é quando o texto mais importa.
       - name: Comentar plan no PR
-        if: github.event_name == 'pull_request'
+        if: ${{ !cancelled() && steps.plan.outcome != 'skipped' && github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
         with:
           script: |
