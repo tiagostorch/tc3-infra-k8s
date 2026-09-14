@@ -14,7 +14,7 @@ Provisiona, via Terraform, a rede e o cluster onde a aplicação NestJS roda. É
 | metrics-server | Requisito do HPA da aplicação |
 | AWS Load Balancer Controller | Traduz Ingress em ALB; alvo do VPC Link do API Gateway |
 | `nri-bundle` (New Relic) | Métricas, eventos e logs do cluster, sem CloudWatch no caminho |
-| Dashboard e alertas | Três páginas de painéis e treze condições, como código |
+| Dashboard e alertas | Quatro páginas de painéis e quatorze condições (quinze com o monitor de Synthetics), como código |
 | Monitor de Synthetics | Healthcheck externo, quando a URL pública é informada |
 
 ## Tecnologias
