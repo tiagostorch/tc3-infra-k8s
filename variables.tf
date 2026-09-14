@@ -41,12 +41,22 @@ variable "node_instance_type" {
 
 variable "node_desired_size" {
   type    = number
-  default = 2
+  default = 3
 }
 
 variable "node_min_size" {
-  type    = number
-  default = 2
+  description = <<-EOT
+    O limite do t3.small é de pods, não de CPU: 11 por nó (ENIs × IPs da VPC
+    CNI). Com os DaemonSets do nri-bundle, dois nós ficavam em 11/11 e a
+    migration não era agendada. Três nós deixam folga para a migration e o
+    rollout.
+
+    O módulo do EKS ignora mudanças em desired_size depois da criação: para
+    mudar o tamanho de um cluster existente, ajuste o node group na AWS antes
+    de subir o mínimo aqui.
+  EOT
+  type        = number
+  default     = 3
 }
 
 variable "node_max_size" {
