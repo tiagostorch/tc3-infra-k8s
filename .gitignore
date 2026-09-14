@@ -6,3 +6,7 @@ crash.log
 *.tfvars
 !*.tfvars.example
 .DS_Store
+
+# Variáveis de ambiente / credenciais — NUNCA commitar
+.env
+.env.*

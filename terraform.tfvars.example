@@ -6,3 +6,40 @@ node_instance_type = "t3.small"
 node_desired_size  = 2
 node_min_size      = 2
 node_max_size      = 4
+
+# ─── New Relic ──────────────────────────────────────────────────────────────
+# account_id, api_key e license_key NÃO vão neste arquivo nem em nenhum outro
+# versionado. Entram por variável de ambiente:
+#   CI     → secrets do GitHub mapeados para TF_VAR_* no workflow
+#   local  → .env na raiz (ignorado pelo git):  set -a; source .env; set +a
+# newrelic_account_id  = (TF_VAR_newrelic_account_id)
+# newrelic_api_key     = (TF_VAR_newrelic_api_key)
+# newrelic_license_key = (TF_VAR_newrelic_license_key)
+newrelic_region        = "US"
+newrelic_low_data_mode = true
+
+# Tags padrão em toda a telemetria. Precisam bater com tc3-infra-db,
+# tc3-auth-lambda e NEW_RELIC_LABELS do ConfigMap da aplicação.
+newrelic_tags = {
+  environment = "production"
+  project     = "tech-challenge-fiap"
+}
+
+# Alerta de consumo do free tier (GB acumulados no mês; o corte é em 100).
+alerta_ingestao_gb = {
+  aviso   = 70
+  critico = 85
+}
+
+app_namespace      = "oficina"
+app_new_relic_name = "oficina-api"
+
+# Vazio desliga o monitor externo. Preencher com o healthcheck público —
+# output `api_endpoint` de tc3-auth-lambda, trocando /auth por /health.
+synthetics_uptime_url = ""
+
+alert_emails = []
+
+alerta_latencia_ms    = 2000
+alerta_utilizacao_pct = 85
+alerta_db_conexoes    = 80

@@ -10,6 +10,29 @@ env:
   AWS_REGION: us-east-1
   TF_VERSION: "1.13.3"
 
+  # ─── New Relic ──────────────────────────────────────────────────────────────
+  # O Terraform lê cada variável de entrada de `TF_VAR_<nome exato>` — em
+  # minúsculas, como está em variables.tf. Um secret chamado
+  # `TF_VAR_NEWRELIC_API_KEY` definiria uma variável `NEWRELIC_API_KEY`, que não
+  # existe, e o plan continuaria pedindo o valor pela entrada padrão até estourar
+  # o timeout do job. Daí o mapeamento explícito aqui.
+  #
+  # As três não têm default: sem os secrets cadastrados o plan falha, que é o
+  # comportamento desejado — pior do que não ter observabilidade é achar que tem.
+  TF_VAR_newrelic_account_id: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
+  TF_VAR_newrelic_api_key: ${{ secrets.NEW_RELIC_API_KEY }}
+  TF_VAR_newrelic_license_key: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+
+  # Configuração, não segredo: entram como *variables* do repositório, não como
+  # secrets — mascarar um e-mail de alerta no log só atrapalha quem depura.
+  # Vazias, a política sobe sem canal de notificação e o monitor externo não é
+  # criado; os alertas continuam abrindo incidente no console.
+  #
+  # `alert_emails` é lista, e o Terraform a lê como JSON: o fallback precisa ser
+  # `[]`, não string vazia, ou o plan aborta com erro de conversão de tipo.
+  TF_VAR_alert_emails: ${{ vars.ALERT_EMAILS || '[]' }}
+  TF_VAR_synthetics_uptime_url: ${{ vars.SYNTHETICS_UPTIME_URL }}
+
 # OIDC dispensa access key de longa duração nos secrets.
 permissions:
   contents: read

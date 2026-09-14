@@ -14,6 +14,10 @@ terraform {
       source  = "hashicorp/kubernetes"
       version = "~> 2.35"
     }
+    newrelic = {
+      source  = "newrelic/newrelic"
+      version = "~> 3.97"
+    }
   }
 }
 
@@ -54,4 +58,13 @@ provider "helm" {
       args        = ["eks", "get-token", "--cluster-name", module.eks.cluster_name, "--region", var.aws_region]
     }
   }
+}
+
+# A chave de API é a "User key" (prefixo NRAK), não a license key: a primeira
+# autoriza a API de configuração (dashboards, alertas), a segunda só a ingestão
+# de telemetria. Trocar as duas é o erro mais comum e devolve 401 no apply.
+provider "newrelic" {
+  account_id = var.newrelic_account_id
+  api_key    = var.newrelic_api_key
+  region     = var.newrelic_region
 }
