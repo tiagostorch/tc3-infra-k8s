@@ -56,8 +56,10 @@ kubectl get nodes
 `.github/workflows/terraform.yml`
 
 - **Pull request** → `fmt`, `validate` e `plan`, com o plano comentado no PR
-- **Push em `develop`** → apply no ambiente de homologação
-- **Push em `main`** → apply no ambiente de produção
+- **Push em `develop`** → apply automático (rótulo `homolog` no GitHub)
+- **Push em `main`** → apply automático (rótulo `production` no GitHub)
+
+> **Ambiente único:** `develop` e `main` aplicam no **mesmo** ambiente na AWS (mesmo state e recursos) — a distinção homologação/produção é apenas o rótulo do deploy no GitHub e foi desconsiderada.
 
 Secrets necessários no repositório:
 
