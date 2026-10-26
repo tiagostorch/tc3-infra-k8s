@@ -62,7 +62,7 @@ zero.
                                           └──────────────┘
 ```
 
-Nenhuma seta passa por CloudWatch Logs, Metric Stream ou Firehose.
+Nenhuma seta passa por CloudWatch Logs, Metric Stream ou Firehose. A única exceção é o alerta das DLQs da Saga (seção 5), porque o SQS não tem agente.
 
 ### Onde cada peça mora
 
@@ -640,6 +640,7 @@ seletor manda — é assim que se investiga um incidente, estreitando o interval
 | Kubernetes — contêiner reiniciando | `K8sContainerSample` | > 2 reinícios em 5 min |
 | Uptime — nenhum pod pronto | `K8sPodSample` | zero réplicas prontas, ou 10 min sem sinal |
 | Uptime — healthcheck externo | `SyntheticCheck` | qualquer falha *(se a URL estiver configurada)* |
+| Mensageria — mensagem na DLQ | `Metric` (`aws.sqs.ApproximateNumberOfMessagesVisible`, via Metric Stream) | qualquer mensagem em uma das três DLQs da Saga, com um sinal por fila |
 
 Duas escolhas de desenho valem explicação.
 
@@ -663,6 +664,16 @@ fora" na prática.
 jeito mais rápido de escrever uma condição que nunca dispara. As tags padrão
 são escritas por nós — aplicação, Lambda e agente de banco — e não têm essa
 ambiguidade.
+
+**A DLQ é lida do CloudWatch.** O SQS não tem agente que empurre métrica, então
+o alerta das DLQs (`oficina-os-saga-replies-dlq`, `oficina-billing-commands-dlq`
+e `oficina-execution-commands-dlq`) usa o Metric Stream da conta, da stack
+`NewRelic-Metric-Streams` criada à mão. É a dependência que o resto do desenho
+evita, aceita aqui porque a alternativa seria cada serviço adivinhar a última
+tentativa de uma mensagem. Sem o stream, a condição fica sem dado e não dispara:
+remover a stack desliga este alerta. Mensagem na DLQ significa que a Saga parou
+naquela OS. O conserto é corrigir a causa e fazer o *redrive* para a fila de
+origem, e os consumidores são idempotentes, então reprocessar é seguro.
 
 ### Tags padrão
 
