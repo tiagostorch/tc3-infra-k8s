@@ -40,8 +40,14 @@ variable "node_instance_type" {
 }
 
 variable "node_desired_size" {
-  type    = number
-  default = 3
+  description = <<-EOT
+    Na Fase 4 o cluster roda três serviços com duas réplicas cada. Só os pods
+    de sistema ocupam cerca de 25 das 33 vagas de três nós, e os serviços
+    levariam a 31, sem espaço para a migration e o rollout. Quatro nós dão 44
+    vagas.
+  EOT
+  type        = number
+  default     = 4
 }
 
 variable "node_min_size" {

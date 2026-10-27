@@ -24,8 +24,10 @@ Terraform ≥ 1.10 · AWS provider 5.x · módulos `terraform-aws-modules/vpc` e
 ## Ordem de execução
 
 ```
-bootstrap/  →  tc3-infra-k8s  →  tc3-infra-db  →  tc3-auth-lambda
+bootstrap/  →  tc3-infra-k8s  →  tc3-infra-db  →  tc3-auth-lambda  →  terraform/ dos serviços (OS, Billing, Execution)
 ```
+
+Depois do bootstrap, a sequência inteira roda pelo workflow **Ambiente** (seção abaixo). Os passos manuais a seguir ficam como referência.
 
 ### 1. Bootstrap (uma vez por conta)
 
@@ -99,15 +101,33 @@ configuração, ambas opcionais:
 
 `main` é protegida: merge apenas via Pull Request com CI verde.
 
-## Custo
+### Subir e derrubar o ambiente inteiro
 
-O control plane do EKS e os nós são cobrados por hora enquanto existirem. Fora das janelas de trabalho:
+`.github/workflows/ambiente.yml` aplica, na ordem das dependências, o Terraform deste repositório, do [`tc3-infra-db`](https://github.com/tiagostorch/tc3-infra-db), do [`tc3-auth-lambda`](https://github.com/tiagostorch/tc3-auth-lambda) e a pasta `terraform/` dos três serviços. O código de cada parte continua no repositório dela; o workflow só baixa a `develop` de cada um e roda o Terraform. É disparado por tag, criada no commit atual da `develop`:
 
 ```bash
-terraform destroy
+git tag ambiente-subir-1 && git push origin ambiente-subir-1
+git tag ambiente-derrubar-1 && git push origin ambiente-derrubar-1
 ```
 
-O `terraform apply` reconstrói o ambiente inteiro em ~20 minutos — que é, ele próprio, a demonstração de infraestrutura como código funcionando.
+| Ação | Ordem |
+|---|---|
+| Subir | plataforma → banco do OS → Lambdas e API Gateway → `terraform/` do OS, do Billing e do Execution |
+| Derrubar | namespaces dos serviços (o controller apaga o ALB) → Lambdas → serviços → banco → plataforma |
+
+O deploy dos serviços fica com o CD de cada repositório. Num ambiente novo, o ALB só existe depois do primeiro deploy, então a subida completa é:
+
+1. tag `ambiente-subir-N`;
+2. CD do Execution e do Billing; depois que os dois estiverem verdes, CD do OS (o smoke test do OS usa o Execution);
+3. outra tag `ambiente-subir-N`: o Terraform da Lambda acha o ALB pelas tags e cria a rota `ANY /{proxy+}`; o resto sai sem mudanças.
+
+Cada apply espera até 30 minutos pelo lock do state, para não falhar se o apply de um push no mesmo repositório ainda estiver rodando. Usa os mesmos secrets e variables do `terraform.yml`, mais o ARN da layer do New Relic da Lambda, escrito no próprio workflow.
+
+## Custo
+
+O control plane do EKS e os nós são cobrados por hora enquanto existirem. Fora das janelas de trabalho, derrube o ambiente pela tag `ambiente-derrubar-N` (seção acima). O repositório ECR da API não é apagado com imagens dentro, então o destroy da plataforma termina com erro nele; o state fica coerente e o próximo apply recria o resto.
+
+A subida reconstrói o ambiente inteiro — que é, ela própria, a demonstração de infraestrutura como código funcionando.
 
 ## Arquitetura
 
@@ -127,7 +147,7 @@ graph TB
                 NAT["NAT Gateway<br/>(egress único)"]
             end
             subgraph Priv["subnets privadas"]
-                subgraph EKS["<b>EKS</b> 1.35 · node group 3× t3.small"]
+                subgraph EKS["<b>EKS</b> 1.35 · node group 4× t3.small"]
                     Pods["pods da API<br/>HPA 2–10 · metrics-server"]
                     NRB["nri-bundle<br/>(métricas/logs/eventos do cluster)"]
                 end
