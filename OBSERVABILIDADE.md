@@ -73,7 +73,7 @@ Nenhuma seta passa por CloudWatch Logs, Metric Stream ou Firehose. A única exce
 | `tc3-infra-k8s` | `newrelic-alertas.tf` | Política, condições (inclui consumo do free tier) e notificação por e-mail |
 | `tc3-infra-k8s` | `newrelic-tags.tf` | Tags `environment`/`project` no dashboard e nas condições |
 | `tc3-infra-k8s` | `newrelic-synthetics.tf` | Monitor externo de disponibilidade |
-| `tc3-infra-db` | `newrelic-postgres.tf` | Usuário de leitura, agente que raspa o RDS, sondas e tags |
+| `tech-challenge-fiap` (OS) | `terraform/newrelic-postgres.tf` | Usuário de leitura, agente que raspa o RDS do OS, sondas e tags |
 | `tc3-auth-lambda` | `infra/lambda.tf` | Layer, wrapper e variáveis da extension (license key por nome de parâmetro SSM) |
 | `tc3-auth-lambda` | `infra/apigateway.tf` | CORS liberando os cabeçalhos W3C e expondo `traceresponse` |
 | `tc3-auth-lambda` | `src/handler.ts`, `src/observabilidade.ts` | Log JSON com `trace.id`/`span.id`, tags, `traceresponse` W3C |
@@ -96,7 +96,7 @@ versionado. Cada repositório tem um `.env` na raiz — **ignorado pelo git**
 .env / secret do GitHub ──TF_VAR_newrelic_license_key──▶ tc3-infra-k8s ──▶ SSM (SecureString)
                                                               │                  │
                                          helm set_sensitive ◀─┘                  ├─▶ CD da API ──▶ Secret app-secret ──▶ pod (secretKeyRef)
-                                         (nri-bundle)                            ├─▶ tc3-infra-db ──▶ Secret nri-postgresql ──▶ agente de banco
+                                         (nri-bundle)                            ├─▶ terraform/ do OS ──▶ Secret nri-postgresql ──▶ agente de banco
                                                                                  └─▶ extension da Lambda (lê em runtime pelo NOME do parâmetro)
 ```
 
@@ -158,12 +158,12 @@ Aplicando da própria máquina, os mesmos valores vão em `terraform.tfvars` —
 ### Ordem de aplicação
 
 ```
-bootstrap  →  tc3-infra-k8s  →  tc3-infra-db  →  tc3-auth-lambda
+bootstrap  →  tc3-infra-k8s  →  tc3-auth-lambda  →  terraform/ dos serviços
 ```
 
 A ordem não é sugestão. `tc3-infra-k8s` cria o namespace `newrelic` e publica a
-license key no SSM; `tc3-infra-db` monta o agente de banco dentro desse namespace
-e lê a chave de lá; `tc3-auth-lambda` lê a mesma chave. Aplicar fora de ordem
+license key no SSM; o `terraform/` do OS monta o agente de banco dentro desse
+namespace e lê a chave de lá; `tc3-auth-lambda` lê a mesma chave. Aplicar fora de ordem
 falha com "namespace not found" ou "parameter not found".
 
 ---
@@ -235,7 +235,7 @@ abre incidente quando as amostras param de chegar.
 Sem CloudWatch não existe `AWS/RDS`. A monitoria passa a ser feita por um
 `Deployment` no cluster rodando a imagem `newrelic/infrastructure-bundle` com a
 integração `nri-postgresql` configurada — declarado em
-`tc3-infra-db/newrelic-postgres.tf`.
+`terraform/newrelic-postgres.tf`, no repositório do OS.
 
 O agente abre conexão no endpoint do RDS e lê `pg_stat_database`,
 `pg_stat_bgwriter` e companhia. São as mesmas visões do catálogo que a AWS lê

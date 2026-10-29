@@ -2,7 +2,7 @@
 
 Infraestrutura Kubernetes do Tech Challenge Fase 3 (FIAP SOAT) — sistema de gestão de oficina mecânica.
 
-Provisiona, via Terraform, a rede e o cluster onde a aplicação NestJS roda. É a **base** dos demais repositórios: `tc3-infra-db` e `tc3-auth-lambda` leem os outputs daqui pelo state remoto.
+Provisiona, via Terraform, a rede e o cluster onde a aplicação NestJS roda. É a **base** dos demais repositórios: `tc3-auth-lambda` e a pasta `terraform/` de cada serviço leem os outputs daqui pelo state remoto.
 
 ## O que este repositório cria
 
@@ -24,7 +24,7 @@ Terraform ≥ 1.10 · AWS provider 5.x · módulos `terraform-aws-modules/vpc` e
 ## Ordem de execução
 
 ```
-bootstrap/  →  tc3-infra-k8s  →  tc3-infra-db  →  tc3-auth-lambda  →  terraform/ dos serviços (OS, Billing, Execution)
+bootstrap/  →  tc3-infra-k8s  →  tc3-auth-lambda  →  terraform/ dos serviços (OS com o banco do OS, Billing, Execution)
 ```
 
 Depois do bootstrap, a sequência inteira roda pelo workflow **Ambiente** (seção abaixo). Os passos manuais a seguir ficam como referência.
@@ -103,7 +103,7 @@ configuração, ambas opcionais:
 
 ### Subir e derrubar o ambiente inteiro
 
-`.github/workflows/ambiente.yml` aplica, na ordem das dependências, o Terraform deste repositório, do [`tc3-infra-db`](https://github.com/tiagostorch/tc3-infra-db), do [`tc3-auth-lambda`](https://github.com/tiagostorch/tc3-auth-lambda) e a pasta `terraform/` dos três serviços. O código de cada parte continua no repositório dela; o workflow só baixa a `develop` de cada um e roda o Terraform. É disparado por tag, criada no commit atual da `develop`:
+`.github/workflows/ambiente.yml` aplica, na ordem das dependências, o Terraform deste repositório, do [`tc3-auth-lambda`](https://github.com/tiagostorch/tc3-auth-lambda) e a pasta `terraform/` dos três serviços. O código de cada parte continua no repositório dela; o workflow só baixa a `develop` de cada um e roda o Terraform. É disparado por tag, criada no commit atual da `develop`:
 
 ```bash
 git tag ambiente-subir-1 && git push origin ambiente-subir-1
@@ -112,8 +112,8 @@ git tag ambiente-derrubar-1 && git push origin ambiente-derrubar-1
 
 | Ação | Ordem |
 |---|---|
-| Subir | plataforma → banco do OS → Lambdas e API Gateway → `terraform/` do OS, do Billing e do Execution |
-| Derrubar | namespaces dos serviços (o controller apaga o ALB) → Lambdas → serviços → banco → plataforma |
+| Subir | plataforma → Lambdas e API Gateway → `terraform/` do OS (com o banco do OS), do Billing e do Execution |
+| Derrubar | namespaces dos serviços (o controller apaga o ALB) → Lambdas → serviços (com os bancos) → plataforma |
 
 O deploy dos serviços fica com o CD de cada repositório. Num ambiente novo, o ALB só existe depois do primeiro deploy, então a subida completa é:
 
@@ -125,7 +125,7 @@ Cada apply espera até 30 minutos pelo lock do state, para não falhar se o appl
 
 ## Custo
 
-O control plane do EKS e os nós são cobrados por hora enquanto existirem. Fora das janelas de trabalho, derrube o ambiente pela tag `ambiente-derrubar-N` (seção acima). O repositório ECR da API não é apagado com imagens dentro, então o destroy da plataforma termina com erro nele; o state fica coerente e o próximo apply recria o resto.
+O control plane do EKS e os nós são cobrados por hora enquanto existirem. Fora das janelas de trabalho, derrube o ambiente pela tag `ambiente-derrubar-N` (seção acima). O ECR da API tem `force_delete`: o destroy o apaga mesmo com imagens, e o próximo CD do OS gera uma imagem nova.
 
 A subida reconstrói o ambiente inteiro — que é, ela própria, a demonstração de infraestrutura como código funcionando.
 
@@ -151,7 +151,7 @@ graph TB
                     Pods["pods da API<br/>HPA 2–10 · metrics-server"]
                     NRB["nri-bundle<br/>(métricas/logs/eventos do cluster)"]
                 end
-                RDS[("<b>RDS PostgreSQL</b><br/>criado em tc3-infra-db")]
+                RDS[("<b>RDS PostgreSQL</b><br/>do OS e do Billing,<br/>criados no terraform/ de cada serviço")]
             end
         end
     end
@@ -165,7 +165,7 @@ graph TB
     NRB -->|"métricas · logs · eventos"| NR
 ```
 
-Este repositório provisiona a **base** (VPC, EKS, ECR, ALB Controller, OIDC) e a **observabilidade do cluster** (`nri-bundle`, dashboard e alertas). O **RDS** é criado em [`tc3-infra-db`](https://github.com/tiagostorch/tc3-infra-db) e as **Lambdas + API Gateway** em [`tc3-auth-lambda`](https://github.com/tiagostorch/tc3-auth-lambda), ambos lendo os outputs daqui pelo state remoto.
+Este repositório provisiona a **base** (VPC, EKS, ECR, ALB Controller, OIDC) e a **observabilidade do cluster** (`nri-bundle`, dashboard e alertas). Os **bancos** são criados na pasta `terraform/` de cada serviço e as **Lambdas + API Gateway** em [`tc3-auth-lambda`](https://github.com/tiagostorch/tc3-auth-lambda), todos lendo os outputs daqui pelo state remoto.
 
 ## Observabilidade
 
@@ -180,9 +180,9 @@ Deste repositório saem a chave de ingestão no SSM, o agente de Kubernetes
 (`nri-bundle`: CPU, memória e estado de nós, pods e contêineres, eventos do
 cluster e logs), o dashboard, as políticas de alerta — incluindo a de consumo
 do free tier — e as tags `environment: production` / `project:
-tech-challenge-fiap` aplicadas a toda a telemetria. O agente do banco mora em
-`tc3-infra-db` e a instrumentação da autenticação em `tc3-auth-lambda`, cada um
-perto do recurso que monitora.
+tech-challenge-fiap` aplicadas a toda a telemetria. O agente do banco do OS mora no
+`terraform/` do OS e a instrumentação da autenticação em `tc3-auth-lambda`, cada
+um perto do recurso que monitora.
 
 ```bash
 terraform output newrelic_dashboard_url
