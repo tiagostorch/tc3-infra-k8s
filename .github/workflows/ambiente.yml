@@ -7,7 +7,8 @@ name: Ambiente
 #   git tag ambiente-subir-1    && git push origin ambiente-subir-1
 #   git tag ambiente-derrubar-1 && git push origin ambiente-derrubar-1
 #
-# Subir: plataforma → banco do OS → Lambdas → terraform/ dos três serviços.
+# Subir: plataforma → Lambdas → terraform/ dos três serviços (o do OS traz o
+# banco do OS).
 # Os deploys dos serviços ficam com o CD de cada repositório (o GITHUB_TOKEN
 # daqui não dispara workflows de outro repositório). Num ambiente novo, o ALB
 # só nasce no primeiro deploy, então a sequência é: tag de subir → CDs
@@ -40,7 +41,7 @@ env:
   TF_VAR_alert_emails: ${{ vars.ALERT_EMAILS || '[]' }}
   TF_VAR_synthetics_uptime_url: ${{ vars.SYNTHETICS_UPTIME_URL }}
 
-  # tc3-infra-db, tc3-auth-lambda e o terraform/ dos serviços.
+  # tc3-auth-lambda e o terraform/ dos serviços.
   TF_VAR_state_bucket: ${{ secrets.TF_STATE_BUCKET }}
 
   # tc3-auth-lambda: o mesmo valor da variable NEWRELIC_LAYER_ARN daquele
@@ -69,38 +70,13 @@ jobs:
     if: startsWith(github.ref_name, 'ambiente-subir-')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Init
-        run: terraform init -input=false -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
-
-      - name: Apply
-        run: terraform apply -auto-approve -input=false
-
-  banco:
-    name: Subir · banco do OS (tc3-infra-db)
-    needs: plataforma
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: tiagostorch/tc3-infra-db
-          ref: ${{ env.REF }}
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -113,18 +89,18 @@ jobs:
 
   lambda:
     name: Subir · Lambdas e API Gateway (tc3-auth-lambda)
-    needs: banco
+    needs: plataforma
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: infra
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: tiagostorch/tc3-auth-lambda
           ref: ${{ env.REF }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -135,11 +111,11 @@ jobs:
           npm ci
           npm run package
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -173,16 +149,16 @@ jobs:
       run:
         working-directory: terraform
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: ${{ matrix.repositorio }}
           ref: ${{ env.REF }}
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -200,7 +176,7 @@ jobs:
     if: startsWith(github.ref_name, 'ambiente-derrubar-')
     runs-on: ubuntu-latest
     steps:
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -245,12 +221,12 @@ jobs:
       run:
         working-directory: infra
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: tiagostorch/tc3-auth-lambda
           ref: ${{ env.REF }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -262,11 +238,11 @@ jobs:
           npm ci
           npm run package
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -277,8 +253,10 @@ jobs:
       - name: Destroy
         run: terraform destroy -auto-approve -input=false
 
-  # Antes do banco e da plataforma: a política de acesso de cada serviço fica
-  # anexada à role dos nós do EKS, e a AWS não apaga role com política anexada.
+  # Antes da plataforma: a política de acesso de cada serviço fica anexada à
+  # role dos nós do EKS, e a AWS não apaga role com política anexada. O do OS
+  # também tira do cluster o agente de monitoria do banco, então o cluster
+  # ainda precisa existir.
   derrubar-servicos:
     name: Derrubar · ${{ matrix.repositorio }}
     needs: derrubar-lambda
@@ -294,16 +272,16 @@ jobs:
       run:
         working-directory: terraform
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: ${{ matrix.repositorio }}
           ref: ${{ env.REF }}
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -314,46 +292,18 @@ jobs:
       - name: Destroy
         run: terraform destroy -auto-approve -input=false
 
-  derrubar-banco:
-    name: Derrubar · banco do OS (tc3-infra-db)
+  derrubar-plataforma:
+    name: Derrubar · plataforma (tc3-infra-k8s)
     needs: derrubar-servicos
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          repository: tiagostorch/tc3-infra-db
-          ref: ${{ env.REF }}
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      - uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Init
-        run: terraform init -input=false -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}"
-
-      - name: Destroy
-        run: terraform destroy -auto-approve -input=false
-
-  # O repositório ECR da API (tc3-oficina-homolog-api) não tem force_delete e a
-  # AWS não o apaga com imagens dentro: o job termina com erro nele e o state
-  # fica com o que não foi apagado. O próximo apply recria o que falta.
-  derrubar-plataforma:
-    name: Derrubar · plataforma (tc3-infra-k8s)
-    needs: derrubar-banco
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}

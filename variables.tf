@@ -147,7 +147,7 @@ variable "newrelic_tags" {
     Kubernetes, campos de cada log coletado pelo Fluent Bit, tags do dashboard
     e das condições de alerta — e é por elas que alertas e painéis filtram.
 
-    Os mesmos valores estão em `newrelic_tags` de tc3-infra-db e
+    Os mesmos valores estão em `newrelic_tags` do terraform/ do OS e de
     tc3-auth-lambda, e em `NEW_RELIC_LABELS` do ConfigMap da aplicação. Mudar
     aqui sem mudar lá deixa condições olhando para dado que ninguém publica.
 

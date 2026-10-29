@@ -18,7 +18,7 @@ node_max_size      = 4
 newrelic_region        = "US"
 newrelic_low_data_mode = true
 
-# Tags padrão em toda a telemetria. Precisam bater com tc3-infra-db,
+# Tags padrão em toda a telemetria. Precisam bater com o terraform/ do OS,
 # tc3-auth-lambda e NEW_RELIC_LABELS do ConfigMap da aplicação.
 newrelic_tags = {
   environment = "production"
